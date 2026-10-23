@@ -35,7 +35,7 @@ Every step (reason, observation, belief before/after, pixel cost) is written to 
 ![architecture](architecture.svg)
 
 - **Public path**: API Gateway HTTP API with per-route throttling (1 request/s, burst 2) → `x132-web` (arm64, 256 MB, no OpenCV; input validation, per-IP and daily caps before any image is read) → `x132-inspect` (arm64 Graviton, 3008 MB, OpenCV 5 layer, models from S3).
-- **Storage**: a private Amazon S3 bucket (object storage) (surfaces, benchmark, models, traces, overlays; uploads expire after 1 day), DynamoDB (inspections, human reviews, rate limits that expire automatically via a time-to-live attribute), CloudWatch (logs kept 7 days, invocation alarm).
+- **Storage**: a private Amazon S3 bucket (object storage) (surfaces, benchmark, models, traces, overlays; raw uploads expire after 1 day, and the validated copy that is inspected and its results after 14 days), DynamoDB (inspections, human reviews, rate limits that expire automatically via a time-to-live attribute), CloudWatch (logs kept 7 days, invocation alarm).
 - **All heavy computation on Lambda**: benchmark generation, feature extraction, training, hard-negative mining, tuning and evaluation run in a sharded `x132-bench` function; the laptop only plans, fans out and merges small JSON files. Example: generating the 84-image 4096 px benchmark (28 training images from the development surfaces, 28 development and 28 test images) took 43 s with 28 shards.
 - **Responsible operation**: AWS Free-plan account (per AWS's documentation, the Free account plan ensures no charges are incurred; "Choosing a plan", AWS Billing User Guide, https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html, accessed 2026-10-23), least-privilege execution role, no public bucket, no Lambda Function URL on the public path, `teardown.py` removes every owned resource. The account's Lambda concurrency limit is 10, so reserved concurrency could not be used; throttling and daily caps are applied at API Gateway and in the cheap front function instead.
 
@@ -103,7 +103,7 @@ Two intermediate results were withdrawn: the first looked much better than the n
 
 ## 9. Responsible use
 
-This is a triage aid, not a safety certification. The trace shows which parts of an image were never examined at full resolution, uncertain cells are routed to a human, and the reported numbers include the failure cases above. Our benchmark and demo samples contain no people or personal data; images uploaded to the demo are kept for at most one day, and users should not upload images of people.
+This is a triage aid, not a safety certification. The trace shows which parts of an image were never examined at full resolution, uncertain cells are routed to a human, and the reported numbers include the failure cases above. Our benchmark and demo samples contain no people or personal data; photos uploaded to the demo and their results are deleted automatically after 14 days (the raw upload after 1 day), and users should not upload images of people.
 
 ## 10. AI disclosure
 

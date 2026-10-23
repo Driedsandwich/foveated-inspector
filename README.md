@@ -72,7 +72,7 @@ bash aws/build_layer.sh --arch all --glibc 2.28        # Lambda layers (Linux wh
 
 - This is a triage aid, not a safety certification. Uncertain areas go to a human; the trace shows exactly which parts of the image were never examined at full resolution.
 - The benchmark defects are synthetic on real photographed backgrounds; evidence on real defects is limited to the patch-level check and qualitative runs on real cracked surfaces.
-- The public demo is rate-limited and capped per day; uploaded images expire after one day. No people or personal data are involved.
+- The public demo is rate-limited and capped per day; uploaded photos and their results expire after 14 days. No people or personal data are involved.
 
 ## AI disclosure
 
