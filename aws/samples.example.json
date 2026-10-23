@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "samples": [
+    {"id": "cracked-concrete", "title": "Cracked concrete · real surface", "key": "x132/samples/cracked-concrete.jpg", "local_path": "../../data/polyhaven_4k/cracked_concrete.jpg", "width": 4096, "height": 4096},
+    {"id": "concrete-wall", "title": "Concrete wall · real surface", "key": "x132/samples/concrete-wall.jpg", "local_path": "../../data/polyhaven_4k/concrete_wall_005.jpg", "width": 4096, "height": 4096},
+    {"id": "worn-floor", "title": "Worn floor · real surface", "key": "x132/samples/worn-floor.jpg", "local_path": "../../data/polyhaven_4k/worn_concrete_floor.jpg", "width": 4096, "height": 4096}
+  ]
+}

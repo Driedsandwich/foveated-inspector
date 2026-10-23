@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field of view · Budget-aware inspection</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#173042;background:#eef2f3;font-size:16px}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1400px;margin:auto;padding:24px}header{border-bottom:1px solid #b9c7cf;display:flex;justify-content:space-between;gap:20px;align-items:end}h1{font-size:clamp(1.6rem,4vw,2.6rem);letter-spacing:-.045em;margin:6px 0}h2{font-size:1.12rem;margin-top:0}p{line-height:1.55}.eyebrow{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;font-weight:750}.status{padding:10px 14px;background:#fff;border-left:4px solid #1453b8;min-height:44px}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:24px}.panel{background:#fff;padding:20px;border:1px solid #b9c7cf;border-radius:8px;margin-bottom:20px}label{display:block;font-weight:650;margin-bottom:8px}select,button,input,textarea{font:inherit}select,input[type=file],textarea{width:100%;max-width:100%}select,textarea{padding:10px;border:1px solid #667f8d;border-radius:4px}input[type=range]{width:100%;accent-color:#1453b8}button,a{touch-action:manipulation}button{min-height:44px;padding:9px 14px;border:1px solid #1453b8;background:white;color:#1453b8;border-radius:4px;cursor:pointer;font-weight:650}button.primary{background:#1453b8;color:white;width:100%;margin-top:16px}button:disabled{opacity:.55;cursor:wait}:focus-visible{outline:3px solid #9c5704;outline-offset:3px}.field{margin-bottom:20px}.muted{font-size:.85rem;color:#405d6c}.thumb{width:100%;height:120px;object-fit:cover;margin-top:10px;border-radius:4px}.canvas-wrap{background:#102331;position:relative;border-radius:8px;overflow:hidden;min-height:220px}canvas{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain}.placeholder{padding:70px 24px;text-align:center;color:#d5e2e9}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}.toolbar label{margin:0;font-size:.9rem}.toolbar input[type=range]{flex:1;min-width:100px}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem}.dot{display:inline-block;width:11px;height:11px;margin-right:5px;border-radius:2px;background:var(--swatch);border:1px solid #173042}.meter{height:10px;background:#dbe4e9;border-radius:5px;overflow:hidden}.meter span{display:block;height:100%;background:#1453b8;width:0}.numbers{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}.review{border-top:1px solid #b9c7cf;padding:14px 0}.review button{margin:8px 8px 0 0}table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #d3dde3}.table-wrap{overflow-x:auto}summary{cursor:pointer;font-weight:650;min-height:44px}footer{border-top:1px solid #b9c7cf;font-size:.8rem;color:#405d6c}footer p{margin:6px 0}a{color:#1453b8}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}[hidden]{display:none!important}@media(max-width:760px){header,main,footer{padding:16px}.layout{grid-template-columns:1fr}.controls{display:grid;grid-template-columns:1fr 1fr;gap:16px}.controls .panel{margin:0}.controls .how{grid-column:1/-1}.panel{padding:16px}.thumb{height:80px}header{display:block}.status{margin-top:16px}}@media(max-width:430px){.controls{grid-template-columns:1fr}.canvas-wrap{min-height:180px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+<style>
+.legend{position:static;margin:16px 0;padding:12px 14px;border:1px solid #b9c7cf;border-radius:6px;background:#fff;align-items:center;overflow-wrap:anywhere}.legend .legend-note{flex-basis:100%;color:#405d6c}.legend .dot{background:transparent;border:1px solid var(--swatch)}
+</style>
+<header><div><span class="eyebrow">OpenCV 5 · Active visual inspection</span><h1>Inspect where the evidence leads.</h1><div class="muted">A surface inspection workbench with an explicit pixel budget.</div></div><div id="status" class="status" role="status" aria-live="polite">Loading prepared surfaces…</div></header>
+<main class="layout">
+<aside class="controls" aria-label="Inspection settings">
+<section class="panel"><h2>01 / Set the inspection</h2><div class="field"><label for="sample">Prepared surface</label><select id="sample"><option value="">Loading…</option></select><img id="thumbnail" class="thumb" alt="Selected surface preview" hidden></div><div class="field"><label for="budget">Fine inspection budget <output id="budget-value" for="budget">10%</output></label><input id="budget" type="range" min="2" max="40" value="10" step="1"><div class="muted">Overview and background calibration are additional and reported below.</div></div><div class="field"><label for="detector">Detector</label><select id="detector"><option value="classic">Classic OpenCV</option><option value="learned">Learned RTrees</option></select></div><details><summary>Inspect your own photo</summary><label for="upload">JPEG or PNG · up to 8 MB, 8192 px per side</label><input id="upload" type="file" accept="image/jpeg,image/png"><p class="muted">Uploaded photos and results expire after 14 days. Avoid personal or confidential photos. Clear the file to use a prepared surface.</p></details><button id="run" class="primary" disabled>Run inspection</button></section>
+<section class="panel how"><h2>How it works</h2><p>The overview supplies a belief for each cell. The agent spends its fine inspection budget where evidence is strongest, zooms into ambiguity, and follows lines across cell borders.</p><p class="muted">Low-resolution evidence stays an unconfirmed candidate. A confirmed model report requires full-resolution evidence. Review queued cells before making an inspection decision. This demo does not certify structural safety.</p></section></aside>
+<div><section aria-labelledby="view-title">
+<h2 id="view-title">02 / Follow the inspection</h2>
+<div class="canvas-wrap"><div id="placeholder" class="placeholder">Choose a surface, set a budget, and run.<br>Inspection steps will appear here.</div><canvas id="view" width="1024" height="1024" role="img" aria-describedby="view-legend" aria-label="Inspection replay showing visited cells, the last 40 gaze points, dashed unconfirmed candidates, confirmed model reports and review cells" hidden></canvas></div>
+<div class="toolbar"><button id="play" disabled aria-pressed="false">Play replay</button><label for="step">Step <output id="step-label">0 / 0</output></label><input id="step" type="range" min="0" max="0" value="0" disabled><label><input id="heat" type="checkbox"> Belief heatmap</label></div>
+<div id="view-legend" class="legend" aria-label="Inspection overlay legend">
+<span class="legend-note">Thin outlines show visited cells. Numbered dots and a faint line show the last 40 inspections.</span>
+<span><i class="dot" style="--swatch:#41c6de"></i>¼ scale</span><span><i class="dot" style="--swatch:#f7c65c"></i>½ scale</span><span><i class="dot" style="--swatch:#d4a3ff"></i>Full scale</span>
+<span><i class="dot" style="--swatch:#50c5ff;border-style:dashed"></i>Unconfirmed candidate (dashed)</span><span><i class="dot" style="--swatch:#73e59c;border-width:3px"></i>Confirmed model report</span><span><i class="dot" style="--swatch:#ffb248;border-width:3px"></i>Human review</span><span><i class="dot" style="--swatch:#b2bcc5;border-style:dashed"></i>Legacy: full scale unverified</span>
+<span><i class="dot" style="--swatch:#50c5ff;border-style:dashed"></i>Coarse-only report: low scale</span>
+</div><p id="reason" class="muted" aria-live="off">No inspection yet.</p></section>
+<section class="panel" style="margin-top:24px" aria-labelledby="budget-title"><h2 id="budget-title">Pixel cost</h2><p id="meter-text" class="numbers">—</p><div class="meter" role="meter" aria-label="Total pixels analysed as a percentage of image area" aria-valuemin="0" aria-valuemax="200" aria-valuenow="0" id="meter"><span></span></div><p id="cost-details" class="muted">Total includes fine inspection, overview, and sampled calibration.</p><div id="downloads" hidden><a id="trace-link">Download trace JSON</a> · <a id="overlay-link">View overlay PNG</a></div></section>
+<section class="panel" aria-labelledby="findings-title"><h2 id="findings-title">03 / Findings by evidence</h2><p class="muted">Unconfirmed candidates do not count as confirmed reports. They may remain when the pixel or time budget ends.</p><div id="confirmed-findings"><p class="muted">No inspection yet.</p></div><div id="candidate-findings"></div></section>
+<section class="panel" aria-labelledby="review-title"><h2 id="review-title">04 / Human review</h2><div id="reviews"><p class="muted">Uncertain cells will be queued here.</p></div></section>
+<section class="panel"><h2>Final report</h2><div class="table-wrap"><table><caption class="sr">Inspection result and measured pixel costs</caption><thead><tr><th scope="col">Measure</th><th scope="col">Result</th></tr></thead><tbody id="report"><tr><td>Inspection</td><td>Not run</td></tr></tbody></table></div></section></div>
+</main><footer><p>Surface photos: Poly Haven (CC0) — Powered by Poly Haven</p><p>Real crack patches: Özgenel (2019), Mendeley Data, CC BY 4.0</p><p>Built with OpenCV 5 and AWS</p></footer>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), state={samples:[],result:null,trace:null,image:null,playing:false,frame:0};
+const pct=value=>(100*Number(value||0)).toFixed(1)+'%';
+function status(message){$('status').textContent=message;}
+async function api(path,body,headers={}){const r=await fetch(path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...headers},...(body?{body:JSON.stringify(body)}:{})});let value;try{value=await r.json();}catch{throw Error('The server returned an unreadable response.');}if(!r.ok)throw Error(value.error||'Request failed.');return value;}
+function selected(){const s=state.samples.find(s=>s.id===$('sample').value);if(s){$('thumbnail').src=s.thumbnail_url;$('thumbnail').alt=s.title+' surface preview';$('thumbnail').hidden=false;}}
+function stop(){state.playing=false;cancelAnimationFrame(state.frame);$('play').textContent='Play replay';$('play').setAttribute('aria-pressed','false');}
+function isCoarseReport(item){return item.status==='coarse_report'||item.report_mode==='coarse_only';}
+function evidenceAtStep(result,end){
+  let reports=[];const candidates=new Map(),reviews=new Map();
+  for(const step of result.trace.slice(0,end)){
+    if(step.clear_candidates)candidates.delete(step.cell);
+    if(step.action==='record_candidate')candidates.set(step.cell,step.candidates||step.detections||[]);
+    if(Array.isArray(step.merged_reports))reports=step.merged_reports;
+    else if(step.action==='report_defect')reports=reports.concat(step.detections||[]);
+    if(step.action==='request_human_review')reviews.set(step.cell,step.review||{cell:step.cell,rect:step.rect,reason:step.reason});
+  }
+  return end===result.trace.length?{reports:result.reported_defects??reports,candidates:result.coarse_candidates??[...candidates.values()].flat(),reviews:result.human_review_queue??[...reviews.values()]}:
+    {reports,candidates:[...candidates.values()].flat(),reviews:[...reviews.values()]};
+}
+function draw(){
+  if(!state.trace||!state.image)return;
+  const r=state.trace,c=$('view'),ctx=c.getContext('2d'),rects=r.coarse.cell_rects,shape=r.coarse.image_shape,
+    ratio=c.width/shape[1],end=Number($('step').value),steps=r.trace.slice(0,end),belief=(r.initial_belief||r.coarse.prior.flat()).slice();
+  ctx.drawImage(state.image,0,0,c.width,c.height);
+  ctx.save();ctx.beginPath();ctx.rect(0,0,c.width,c.height);ctx.clip();
+  const box=(rect,colour,line=2,dashed=false)=>{
+    if(!rect||rect.length!==4||!rect.every(Number.isFinite)||rect[2]<=0||rect[3]<=0)return;
+    const[x,y,w,h]=rect,x0=Math.max(0,x*ratio),y0=Math.max(0,y*ratio),x1=Math.min(c.width,(x+w)*ratio),y1=Math.min(c.height,(y+h)*ratio);
+    if(x1<=x0||y1<=y0)return;
+    ctx.strokeStyle=colour;ctx.lineWidth=line;ctx.setLineDash(dashed?[7,5]:[]);ctx.strokeRect(x0,y0,x1-x0,y1-y0);ctx.setLineDash([]);
+  };
+  for(const s of steps){if(s.cell!==null&&s.cell!==undefined&&s.belief_after!==null)belief[s.cell]=s.belief_after;for(const u of s.belief_updates||[])belief[u.cell]=u.belief_after;}
+  if($('heat').checked)rects.forEach((v,i)=>{ctx.fillStyle=`rgba(235,70,48,${Math.max(0,Math.min(1,belief[i]||0))*.18})`;ctx.fillRect(v[0]*ratio,v[1]*ratio,v[2]*ratio,v[3]*ratio);});
+  const scaleColour=scale=>({'0.25':'#41c6de','0.5':'#f7c65c','1':'#d4a3ff'}[scale]||'#fff'),
+    inspections=steps.filter(s=>['inspect_tile','inspect','fine_scan'].includes(s.action)&&s.scale!==null&&s.scale!==undefined)
+      .map((s,index)=>({step:s,order:index+1,rect:s.rect||rects[s.cell]}))
+      .filter(item=>Array.isArray(item.rect)&&item.rect.length===4&&item.rect.every(Number.isFinite)&&item.rect[2]>0&&item.rect[3]>0&&item.rect[0]<shape[1]&&item.rect[1]<shape[0]&&item.rect[0]+item.rect[2]>0&&item.rect[1]+item.rect[3]>0);
+  const visitedCells=new Map();for(const item of inspections)visitedCells.set(item.step.cell??item.rect.join(','),item);
+  ctx.save();ctx.globalAlpha=.22;
+  for(const item of visitedCells.values())box(item.rect,scaleColour(item.step.scale),1);
+  ctx.restore();
+  const gazeRadius=Math.max(0,Math.min(3,(Math.min(c.width,c.height)-1)/2)),
+    recent=inspections.slice(-40).map(item=>({...item,point:[Math.max(gazeRadius,Math.min(c.width-1-gazeRadius,(item.rect[0]+item.rect[2]/2)*ratio)),Math.max(gazeRadius,Math.min(c.height-1-gazeRadius,(item.rect[1]+item.rect[3]/2)*ratio))]}));
+  if(recent.length>1){
+    ctx.save();ctx.globalAlpha=.28;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(...recent[0].point);for(const item of recent.slice(1))ctx.lineTo(...item.point);ctx.stroke();ctx.restore();
+  }
+  for(const item of recent){
+    ctx.fillStyle=scaleColour(item.step.scale);ctx.beginPath();ctx.arc(...item.point,gazeRadius,0,Math.PI*2);ctx.fill();
+    const label=String(item.order);ctx.font='10px system-ui';ctx.fillStyle='rgba(255,255,255,.85)';
+    const labelWidth=ctx.measureText(label).width;
+    if(c.height>=14&&c.width>labelWidth+2){const x=Math.max(1,Math.min(c.width-labelWidth-1,item.point[0]+5)),y=Math.max(11,Math.min(c.height-2,item.point[1]-4));ctx.fillText(label,x,y);}
+  }
+  const evidence=evidenceAtStep(r,end);
+  for(const item of evidence.candidates)box(item.bbox||rects[item.cell],'#50c5ff',2,true);
+  for(const item of evidence.reports)box(item.bbox,isCoarseReport(item)?'#50c5ff':item.scale===1?'#73e59c':'#b2bcc5',3,isCoarseReport(item)||item.scale!==1);
+  for(const item of evidence.reviews)box(item.rect||rects[item.cell],'#ffb248',4);
+  ctx.restore();
+  const last=steps.at(-1);$('step-label').textContent=`${end} / ${r.trace.length}`;
+  $('reason').textContent=last?`Step ${last.step}: ${last.reason}`:'Overview pending.';
+}
+function replay(){if(state.playing){stop();return;}if(Number($('step').value)>=Number($('step').max))$('step').value=0;state.playing=true;$('play').textContent='Pause replay';$('play').setAttribute('aria-pressed','true');let last=0;function tick(t){if(!state.playing)return;if(t-last>160){last=t;$('step').value=Number($('step').value)+1;draw();if(Number($('step').value)>=Number($('step').max)){stop();return;}}state.frame=requestAnimationFrame(tick);}state.frame=requestAnimationFrame(tick);}
+function findingList(container,title,items,empty){
+  const heading=document.createElement('h3');heading.textContent=`${title} (${items.length})`;container.append(heading);
+  if(!items.length){const p=document.createElement('p');p.className='muted';p.textContent=empty;container.append(p);return;}
+  const list=document.createElement('ul');
+  for(const item of items){const li=document.createElement('li'),cells=item.cells||[item.cell],where=cells.filter(v=>v!==undefined).join(', '),score=Number(item.score);li.textContent=`${item.kind_guess||'Surface anomaly'}${where?' · cell '+where:''}${Number.isFinite(score)?' · score '+score.toFixed(3):''}${item.scale!==undefined?' · scale '+item.scale:''}`;list.append(li);}
+  container.append(list);
+}
+function showReport(result){
+  const s=result.summary,evidence=evidenceAtStep(state.trace,state.trace.trace.length),
+    reports=result.reported_defects??evidence.reports,candidates=result.coarse_candidates??evidence.candidates,
+    reviews=result.human_review_queue??evidence.reviews,
+    coarseReports=reports.filter(isCoarseReport),
+    confirmed=reports.filter(item=>item.scale===1&&!isCoarseReport(item)),
+    legacy=reports.filter(item=>item.scale!==1&&!isCoarseReport(item));
+  $('confirmed-findings').replaceChildren();$('candidate-findings').replaceChildren();
+  findingList($('confirmed-findings'),'Confirmed model reports',confirmed,'No full-resolution model reports.');
+  findingList($('candidate-findings'),'Unconfirmed candidates',candidates,'No unconfirmed candidates remain.');
+  if(coarseReports.length)findingList($('candidate-findings'),'Coarse-only reports — low-resolution evidence',coarseReports,'');
+  if(legacy.length)findingList($('candidate-findings'),'Legacy reports — resolution unverified',legacy,'');
+  const rows=[['Confirmed model reports',confirmed.length],['Coarse-only reports (low resolution)',coarseReports.length],['Unconfirmed candidates',candidates.length],['Human review cells',reviews.length],...(legacy.length?[['Legacy reports (scale unverified)',legacy.length]]:[]),['Fine inspection',pct(s.budget_used_frac)],['Calibration (additional)',pct(s.calibration_cost_frac)],['Total pixels',pct(s.total_cost_frac)],['Tool calls',s.n_tool_calls],['Elapsed',`${(s.elapsed_ms/1000).toFixed(2)} s`],['Stop reason',s.stop_reason]];
+  $('report').replaceChildren(...rows.map(([k,v])=>{const tr=document.createElement('tr'),th=document.createElement('th'),td=document.createElement('td');th.scope='row';th.textContent=k;td.textContent=v;tr.append(th,td);return tr;}));
+  $('meter-text').textContent=`Pixels analysed at full-resolution equivalent: ${pct(s.total_cost_frac)} vs 100% for exhaustive fine scanning`;
+  $('cost-details').textContent=`Fine ${pct(s.budget_used_frac)} · additional calibration ${pct(s.calibration_cost_frac)}. Exhaustive also pays overview and calibration. Pixel counts are not elapsed time. Confirmed reports are model outputs, not a safety certification.`;
+  $('meter').setAttribute('aria-valuenow',String(Math.min(200,100*s.total_cost_frac)));$('meter').firstElementChild.style.width=Math.min(100,100*s.total_cost_frac)+'%';
+  $('trace-link').href=result.trace_url;$('overlay-link').href=result.overlay_url;$('downloads').hidden=false;$('reviews').replaceChildren();
+  if(!reviews.length){const p=document.createElement('p');p.textContent='No cells were queued for review. This does not establish that the surface is defect-free.';$('reviews').append(p);}
+  for(const item of reviews){
+    const div=document.createElement('div');div.className='review';const p=document.createElement('p');p.textContent=`Cell ${item.cell}: ${item.reason}`;div.append(p);
+    const input=document.createElement('input');input.type='text';input.maxLength=500;input.placeholder='Optional review note';input.setAttribute('aria-label',`Review note for cell ${item.cell}`);div.append(input);
+    for(const decision of ['approve','reject']){const b=document.createElement('button');b.textContent=decision==='approve'?'Approve':'Reject';b.setAttribute('aria-label',`${b.textContent} cell ${item.cell}`);b.onclick=async()=>{b.disabled=true;try{await api('/api/review',{inspection_id:result.inspection_id,cell:item.cell,decision,note:input.value},{'X-Inspection-Token':result.review_token});status(`Cell ${item.cell}: ${decision} saved.`);}catch(e){status(e.message);}finally{b.disabled=false;}};div.append(b);}
+    $('reviews').append(div);
+  }
+}
+$('budget').oninput=()=>{$('budget-value').value=$('budget').value+'%';};$('sample').onchange=selected;$('heat').onchange=draw;$('step').oninput=()=>{stop();draw();};$('play').onclick=replay;
+$('run').onclick=async()=>{stop();$('run').disabled=true;status('Inspecting the full-resolution surface…');try{const file=$('upload').files[0],body={budget_frac:Number($('budget').value)/100,detector:$('detector').value},headers={};if(file){if(file.size>8*1024*1024||!['image/jpeg','image/png'].includes(file.type))throw Error('Choose a JPEG or PNG no larger than 8 MB.');const grant=await api('/api/upload-url',{content_type:file.type,size_bytes:file.size});const form=new FormData();Object.entries(grant.post.fields).forEach(([k,v])=>form.append(k,v));form.append('file',file);const uploaded=await fetch(grant.post.url,{method:'POST',body:form});if(!uploaded.ok)throw Error('Photo upload failed.');body.upload_key=grant.upload_key;headers['X-Upload-Token']=grant.upload_token;}else body.sample_id=$('sample').value;const result=await api('/api/inspect',body,headers);const r=await fetch(result.trace_url);if(!r.ok)throw Error('Could not load the inspection trace.');state.trace=await r.json();state.result=result;const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Could not load the result image.'));image.src=result.preview_url||result.image_url;});state.image=image;const shape=state.trace.coarse.image_shape;$('view').width=1024;$('view').height=Math.max(1,Math.round(1024*shape[0]/shape[1]));$('view').hidden=false;$('placeholder').hidden=true;$('step').max=state.trace.trace.length;$('step').value=state.trace.trace.length;$('step').disabled=false;$('play').disabled=false;showReport(result);draw();status('Inspection ready. Review the replay and any uncertain cells.');}catch(e){status(e.message);}finally{$('run').disabled=false;}};
+(async()=>{try{const data=await api('/api/samples');state.samples=data.samples;$('sample').replaceChildren(...data.samples.map(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.title;return o;}));selected();$('run').disabled=!data.samples.length;status(data.samples.length?'Ready. Start with a prepared surface.':'No prepared samples are configured.');}catch(e){status(e.message);}})();
+</script></html>

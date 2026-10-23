@@ -1,0 +1,10 @@
+# runtime state, build outputs and local data never go to the repository
+aws/state.json
+build/
+artifacts/
+data/
+models/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
