@@ -1,9 +1,9 @@
 # Foveated Inspector — technical report
 
-Budget-aware active visual inspection with OpenCV 5 on AWS.
+Budget-aware active visual inspection with OpenCV 5 on AWS. Like the fovea of the eye, it looks at full resolution only where it needs to.
 OpenCV AI Competition 2026 entry (Agentic Vision path). Code: https://github.com/Driedsandwich/foveated-inspector · Live demo (throttled): https://s041j0ehzk.execute-api.us-east-1.amazonaws.com
 
-**Summary.** An agent inspects a 4096 × 4096 concrete photo under a fixed budget of full-resolution analysis: it glances at a ¼-resolution overview, chooses which 256 × 256 cells to examine more closely, reports a defect only when full resolution confirms it, and queues uncertain cells for a human. On held-out surfaces with synthetic defects, its flags are right 42.9–87.5 % of the time versus 8.3 % for random tiles at the same budget, but it finds only 19–30 % of the defect cells. The detector was trained on synthetic defects and does not yet transfer to real crack photos (52.9 % accuracy on 2,000 real patches); this is the main limitation. All results below were measured on 2026-10-24: evaluation, training and timing on AWS Lambda, and the real-patch check (Section 6) on a laptop. The evaluation code, traces and summaries are in the repository.
+**Summary.** An agent inspects a 4096 × 4096 concrete photo under a fixed budget of full-resolution analysis: it glances at a ¼-resolution overview, chooses which 256 × 256 cells to examine more closely, reports a defect only when full resolution confirms it, and queues uncertain cells for a human. On held-out surfaces with synthetic defects, at a 40 % budget its flags are right 42.9 % of the time versus 8.3 % for random cells at the same budget (87.5 % at a 5 % budget), but it finds only 19–30 % of the defects (counted at cell level). The detector was trained on synthetic defects and does not yet transfer to real crack photos (52.9 % accuracy on 2,000 real patches, half of them cracks, i.e. close to chance); this is the main limitation. All results below were measured on 2026-10-24: evaluation, training and timing on AWS Lambda, and the real-patch check (Section 6.3) on a laptop. The evaluation code, traces and summaries are in the repository.
 
 ## 1. Problem and users
 
@@ -16,7 +16,7 @@ The question this project measures: *with a fixed budget of full-resolution anal
 The agent runs a perception → decision → action loop:
 
 1. **Coarse scan** of the whole image at ¼ resolution (OpenCV 5) → a belief map over a 16 × 16 grid of cells (each cell is 256 × 256 pixels at full resolution); the belief of a cell is the coarse model's highest patch score in it.
-2. **Choose the next look**: the cell and zoom level (¼, ½, full) with the highest score per pixel of analysis, where the score is the cell's current defect belief (raised for cells a crack is heading into, and for ambiguous cells worth a closer look) divided by the full-resolution pixels that look would cost.
+2. **Choose the next look**: the agent scores each cell and zoom level (¼, ½, full) by the cell's current defect belief divided by the full-resolution pixels that look would cost, and takes the highest score; the belief is raised for cells a crack is heading into and for ambiguous cells worth a closer look.
 3. **Inspect the tile** with OpenCV 5 and `cv2.ml` random forests (one per scale) → candidate defects with kind, length and width.
 4. **The evidence decides the next action**: escalate the same cell to a higher zoom when ambiguous; follow a crack whose endpoint touches the cell border into the neighbouring cell; **report a defect only when the full-resolution evidence overlaps the coarse candidate that triggered the look** (or is a thin linear structure); send an unresolved cell to a **human-review queue**.
 5. **Stop** when the pixel budget is spent or no remaining cell is likely enough.
@@ -36,23 +36,25 @@ Every step (reason, observation, belief before/after, pixel cost) is written to 
 
 - **Public path**: API Gateway HTTP API with per-route throttling (1 request/s, burst 2) → `x132-web` (arm64, 256 MB, no OpenCV; input validation, per-IP and daily caps before any image is read) → `x132-inspect` (arm64 Graviton, 3008 MB, OpenCV 5 layer, models from S3).
 - **Storage**: a private Amazon S3 bucket (object storage) (surfaces, benchmark, models, traces, overlays; uploads expire after 1 day), DynamoDB (inspections, human reviews, rate limits that expire automatically via a time-to-live attribute), CloudWatch (logs kept 7 days, invocation alarm).
-- **All heavy computation on Lambda**: benchmark generation, feature extraction, training, hard-negative mining, tuning and evaluation run in a sharded `x132-bench` function; the laptop only plans, fans out and merges small JSON files. Example: generating the 84-image 4096 px benchmark took 43 s with 28 shards.
-- **Responsible operation**: AWS Free-plan account (per AWS's documentation, usage on the Free plan incurs no charges), least-privilege execution role, no public bucket, no Lambda Function URL on the public path, `teardown.py` removes every owned resource. The account's Lambda concurrency limit is 10, so reserved concurrency could not be used; throttling and daily caps are applied at API Gateway and in the cheap front function instead.
+- **All heavy computation on Lambda**: benchmark generation, feature extraction, training, hard-negative mining, tuning and evaluation run in a sharded `x132-bench` function; the laptop only plans, fans out and merges small JSON files. Example: generating the 84-image 4096 px benchmark (28 training images from the development surfaces, 28 development and 28 test images) took 43 s with 28 shards.
+- **Responsible operation**: AWS Free-plan account (per AWS's documentation, the Free account plan ensures no charges are incurred; "Choosing a plan", AWS Billing User Guide, https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html, accessed 2026-10-23), least-privilege execution role, no public bucket, no Lambda Function URL on the public path, `teardown.py` removes every owned resource. The account's Lambda concurrency limit is 10, so reserved concurrency could not be used; throttling and daily caps are applied at API Gateway and in the cheap front function instead.
 
 **Graviton vs x86_64** (same OpenCV 5 tool, same three 256 × 256 tiles, three warm runs each): median execution 38.9 ms vs 36.7 ms; median billed duration 39 ms vs 37 ms — about the same. We did not measure cost. The sample is small.
 
 ## 5. Evaluation design
 
-- **Backgrounds**: 14 photographed concrete surfaces from Poly Haven (CC0), 4096 × 4096. Development surfaces (7) and test surfaces (7) are disjoint. We used synthetic defects on real photographs because we had no licensed high-resolution real defect images with pixel-level ground truth within the competition window; an attempt to obtain one public crack dataset failed at download.
-- **Defects**: crack, spall, efflorescence and rust stain, injected with exact pixel ground truth. Each defect's contrast is calibrated against its local texture: the signal-to-noise ratio (SNR, mean intensity change on the defect divided by the local texture's standard deviation) is at least 1.3 (achieved minimum 1.42, median 2.63). The coarsest scale at which each defect is geometrically visible is recorded: of 306 evaluation defects, 251 are visible at ¼, 53 only from ½, 2 only at full resolution.
+- **Backgrounds**: 14 photographed concrete surfaces from Poly Haven (CC0), 4096 × 4096. Development surfaces (7) and test surfaces (7) are disjoint. We used synthetic defects on real photographs because we had no licensed high-resolution real defect images with pixel-level ground truth within the competition window. The public crack patches used in Section 6.3 (Özgenel, 2019) are small classification patches without pixel-level ground truth, so we use them only as a transfer check.
+- **Defects**: crack, spall, efflorescence and rust stain, injected with exact pixel ground truth. Each defect's contrast is calibrated against its local texture: the signal-to-noise ratio (SNR, mean intensity change on the defect divided by the local texture's standard deviation) is at least 1.3 (achieved minimum 1.42, median 2.63). The coarsest scale at which each defect is geometrically visible is recorded: of the 306 defects in the 56 evaluation images (28 development, 28 test), 251 are visible at ¼, 53 only from ½, 2 only at full resolution.
 - **Data use**: training, hard-negative mining and policy tuning use development surfaces only. The test split (28 images, 155 defects) is used for the reported numbers.
 - **Matching** (pooled over all defects in the test set): a report finds a defect if the intersection-over-union (IoU) of its box with the defect's box is ≥ 0.1, or if it covers ≥ 30 % of the defect's pixels while its area is ≤ 9 × the defect box. Anything else is a false alarm.
-- **Cell-level view** (what the agent decides is *where to look*): a cell is *flagged* when it holds a confirmed report; a defect counts as found if one flagged cell contains ≥ 30 % of its pixels; we also report the fraction of cells flagged and the fraction of flagged cells that contain a defect ("flag precision").
+- **Cell-level view** (what the agent decides is *where to look*): a cell is *flagged* when it holds a confirmed report; a defect counts as found if one flagged cell contains ≥ 30 % of its pixels, and *defect-cell recall* is the share of defects found this way; we also report the fraction of cells flagged and the fraction of flagged cells that contain a defect ("flag precision").
 - **Baselines**: random cells (3 random seeds, averaged per image) and raster order use the same full-resolution budget as the agent. Coarse-only (¼ candidates reported directly, no full-resolution look) and exhaustive full-resolution analysis are reference points at very different costs, so their pixel cost is shown next to their results.
 
-## 6. Results (test surfaces, 28 images, 155 defects)
+## 6. Results
 
-Policy configuration selected on development data only: initial zoom ½ and a report threshold of 0.75 multiplied by 1.05 (the tuning grid scales each candidate threshold by 1.00, 1.05 or 1.10, never below the model's validated floor).
+### 6.1 Test surfaces (28 images, 155 defects)
+
+Policy configuration, selected on development data only by the rule "highest recall with ≤ 10 false alarms per image, otherwise the best recall with ≤ 50" (Section 6.2): initial zoom ½ and a report threshold of 0.75 multiplied by 1.05 (the tuning grid scales each candidate threshold by 1.00, 1.05 or 1.10, never below the per-scale threshold fixed when the detector was validated).
 
 | Method | Full-res budget | Defect-cell recall | Cells flagged | Flag precision | Box recall | Box precision | False alarms / image | Pixels analysed* |
 |---|---|---|---|---|---|---|---|---|
@@ -65,33 +67,39 @@ Policy configuration selected on development data only: initial zoom ½ and a re
 
 \* Full-resolution-equivalent pixels, including the ¼ overview (6.25 %) and calibration tiles, as a fraction of the image; this is why exhaustive analysis exceeds 100 %. Box recall and precision pool all 155 defects; random cells average three seeds per image.
 
-**Reading.** At the same 40 % budget the agent finds about as many defect cells as random tiles (30.3 % vs 29.7 %) while flagging about seven times fewer cells (1.8 % vs 12.5 %), so a flag from the agent is about five times as likely to be right (42.9 % vs 8.3 %). At a 5 % budget its flags are right 87.5 % of the time. The cost is recall: with this conservative configuration the agent misses most defects, and exhaustive full-resolution analysis finds the most defect cells (70.3 %) but produces 116.8 false alarms per image. Coarse-only reporting, which is the agent's own first step, finds slightly more defect cells (34.8 %) with fewer pixels (7.8 %), but only 20.4 % of its flags are right; the agent's full-resolution looks buy precision, not recall. On development surfaces the selected configuration reached 50.6 % defect-cell recall, so recall drops on the unseen test textures; we attribute this to the texture shift between surfaces but did not analyse it further.
+**Reading.** At the same 40 % budget the agent's defect-cell recall is about the same as random cells' (30.3 % vs 29.7 %) while flagging about seven times fewer cells (1.8 % vs 12.5 %), so a flag from the agent is about five times as likely to be right (42.9 % vs 8.3 %). At a 5 % budget its flags are right 87.5 % of the time. The cost is recall: with this conservative configuration the agent misses most defects, and exhaustive full-resolution analysis has the highest defect-cell recall (70.3 %) but produces 116.8 false alarms per image. Coarse-only reporting, which is the agent's own first step, has a slightly higher defect-cell recall (34.8 %) with fewer pixels (7.8 %), but only 20.4 % of its flags are right; the agent's full-resolution looks buy precision, not recall. On development surfaces the selected configuration reached 50.6 % defect-cell recall, so recall drops on the unseen test textures; a likely cause is the texture shift between surfaces, which we did not analyse further.
 
-**Operating points on development data** (budget 40 %; the selection rule was "highest recall with ≤ 10 false alarms per image, otherwise the best recall with ≤ 50"):
+**Hand-crafted detector under the same policy.** We also evaluated the classic OpenCV detector (hand-written OpenCV rules on morphology, Gabor and Lab colour responses, with thresholds set from each image's own statistics; no learned model) with the same policy configuration, which was tuned for the learned detector only. At a 40 % budget it reaches 33.5 % defect-cell recall and 55.2 % flag precision, higher than the learned detector (30.3 % and 42.9 %), but its box precision is lower (17.4 % vs 24.7 %) and it raises more false alarms (6.3 vs 4.4 per image); at a 5 % budget it is lower on both cell measures (14.8 % and 86.0 % vs 19.4 % and 87.5 %). On these test surfaces the learned forests do not clearly beat hand-crafted features.
+
+### 6.2 Operating points on development data
+
+Budget 40 %; the selection rule is the one stated in Section 6.1.
 
 | Initial zoom | Threshold | Box recall (mean per image) | False alarms / image | Defect-cell recall | Cells flagged | Flag precision |
 |---|---|---|---|---|---|---|
-| ¼ | 0.60 | 0.673 | 82.6 | 0.709 | 22.5 % | 0.135 |
-| ½ | 0.75 | 0.577 | 21.0 | 0.617 | 6.3 % | 0.487 |
-| ½ | 0.75 × 1.05 (selected) | 0.437 | 5.6 | 0.506 | 2.6 % | 0.688 |
+| ¼ | 0.60 | 67.3 % | 82.6 | 70.9 % | 22.5 % | 13.5 % |
+| ½ | 0.75 | 57.7 % | 21.0 | 61.7 % | 6.3 % | 48.7 % |
+| ½ | 0.75 × 1.05 (selected) | 43.7 % | 5.6 | 50.6 % | 2.6 % | 68.8 % |
 
 These points show the trade-off a deployment would choose from: more recall costs many more flags for a human to review.
 
-**Real crack patches (independent check, no training on real data)**: on 1,000 crack and 1,000 non-crack 227 × 227 patches from Özgenel (2019), the full-resolution model labels 98.0 % of crack patches and also 92.2 % of non-crack patches as defective (accuracy 52.9 %). The detector trained on synthetic defects does not transfer to real crack photographs at the patch level. This is the main limitation of the current model.
+### 6.3 Real crack patches
+
+Independent check, no training on real data: on 1,000 crack and 1,000 non-crack 227 × 227 patches from Özgenel (2019), the full-resolution model labels 98.0 % of crack patches and also 92.2 % of non-crack patches as defective (accuracy 52.9 %, close to the 50 % of guessing on this balanced set). The detector trained on synthetic defects does not transfer to real crack photographs at the patch level. This is the main limitation of the current model.
 
 ## 7. What went wrong and how we caught it
 
-Two intermediate results looked much better than the numbers above and were withdrawn:
+Two intermediate results were withdrawn: the first looked much better than the numbers above, and the second came from a degenerate configuration.
 
-1. An early merge rule chained nearby reports along cracks into giant boxes. Report boxes covered a median 77 % of each image, and the original matching rule did not penalise large boxes, so recall looked like 94.8 % at a 40 % budget. We found it by looking at the overlay of the live demo, measured the box-size distribution, and replaced both the merge rule (bounded pairs, no chaining) and the matching rule (IoU / bounded coverage, above). The legacy columns are kept in the summaries for transparency.
-2. A first selection threshold (≤ 5 false alarms per image) picked a degenerate configuration; we changed the threshold using the development trade-off table only. The configuration behind the reported test numbers was selected on development data, but we did look at test results of the two withdrawn versions during development, so the test set is not untouched; we did not have time to generate and evaluate a fresh test set.
+1. An early rule for merging overlapping reports into one box chained nearby reports along cracks into giant boxes. Report boxes covered a median 77 % of each image, and the original matching rule did not penalise large boxes, so recall looked like 94.8 % at a 40 % budget. We found it by looking at the overlay of the live demo, measured the box-size distribution, and replaced both the merge rule (bounded pairs, no chaining) and the matching rule (IoU / bounded coverage, above). The legacy columns are kept in the summaries for transparency.
+2. A first selection threshold (≤ 5 false alarms per image) picked a degenerate configuration with low recall; we changed the threshold using the development trade-off table only. The configuration behind the reported test numbers was selected on development data. However, we looked at test results of the two withdrawn versions during development, so the test set is not untouched, and a fresh test set has not yet been generated.
 
 ## 8. Limitations
 
 - Defects in the benchmark are synthetic on real photographed backgrounds; the real-patch check shows the detector does not yet transfer to real cracks.
 - Recall at useful precision is low; the active policy is limited by the detector's discrimination on busy textures.
-- The live demo samples are real cracked surfaces without ground truth. In one demo run (cracked-concrete sample, 20 % budget) the agent confirmed 1 report, kept 4 coarse candidates and queued 39 cells for human review.
-- Timing results are from warm Lambda invocations and small samples. One 4096 × 4096 inspection through the public API with the reported configuration took 3.6 s of compute (11.0 s round trip, 20 % budget, one run); we did not measure cost.
+- The live demo samples are real cracked surfaces without ground truth. In two demo runs on the cracked-concrete sample (20 % budget, same result both times) the agent confirmed 1 report, left 4 coarse candidates unconfirmed and queued 39 cells for human review; on this real cracked surface most of the work went to the human queue.
+- Timing results are from warm Lambda invocations and small samples. One 4096 × 4096 inspection through the public API with the reported configuration took 3.6 s and 3.7 s of compute in two runs (11.0 s and 7.0 s round trip, 20 % budget).
 
 ## 9. Responsible use
 
@@ -99,7 +107,7 @@ This is a triage aid, not a safety certification. The trace shows which parts of
 
 ## 10. AI disclosure
 
-The code was written with AI coding assistants (OpenAI Codex and Anthropic Claude Code) under human direction; all AWS runs, evaluation and the decisions about what to report were checked against the stored artifacts. The agent in the product is a rule-based policy and does not call a generative model.
+The code and this report were written with AI coding assistants (OpenAI Codex and Anthropic Claude Code) under human direction. All AWS runs and reported numbers were checked against the stored run artifacts. The agent in the product is a rule-based policy and does not call a generative model.
 
 ## 11. Credits and licences
 
