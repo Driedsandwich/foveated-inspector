@@ -16,7 +16,7 @@ High-resolution inspection images (drone surveys of bridge decks, line-scan came
 ## How it works
 
 1. **Coarse scan** (¼ resolution, OpenCV 5): multi-scale morphology, Hessian ridge strength, Gabor energy, Lab colour deviation, normalised by robust statistics of the same surface → a belief map over a 16×16 grid.
-2. **Choose the next look**: the agent picks the tile and zoom level (¼, ½, full) with the highest defect belief per full-resolution pixel that look would cost.
+2. **Choose the next look**: a pending full-resolution confirmation of a candidate goes first; otherwise the agent picks the tile and zoom level (¼, ½, full) with the highest defect belief per full-resolution pixel that look would cost, after weighting up tiles a crack is heading into and ambiguous tiles.
 3. **Inspect the tile** (`inspect_tile`, OpenCV 5 + `cv2.ml` RTrees per scale): patch features → defect probability map → connected components → candidate defects with kind, length and width.
 4. **The evidence decides the next action**: escalate the same tile to a higher zoom when ambiguous; follow a crack whose endpoint touches the tile border into the neighbouring tile; report a defect only after confirming it at full resolution; send it to a human-review queue when still ambiguous.
 5. **Stop** when the pixel budget is spent or no remaining tile is likely enough. Every step (reason, observation, belief before/after, pixel cost) is written to a JSON trace that the web UI replays.
@@ -65,14 +65,14 @@ bash aws/build_layer.sh --arch all --glibc 2.28        # Lambda layers (Linux wh
 .venv/bin/python aws/deploy.py --bench-only --execute   # private benchmark worker
 # then follow docs/REPRODUCE.md: upload surfaces → generate → features → fit → hard negatives → refit → tune (dev) → eval (test)
 .venv/bin/python aws/deploy.py --execute --model-dir <models> --samples-manifest aws/samples.example.json
-.venv/bin/python aws/teardown.py --execute              # removes every resource it created
+.venv/bin/python aws/teardown.py --execute              # deletes resources recorded in aws/state.json after per-type ownership checks; versioned buckets are left for manual review
 ```
 
 ## Responsible use and limits
 
 - This is a triage aid, not a safety certification. Uncertain areas go to a human; the trace shows exactly which parts of the image were never examined at full resolution.
 - The benchmark defects are synthetic on real photographed backgrounds; evidence on real defects is limited to the patch-level check and qualitative runs on real cracked surfaces.
-- The public demo is rate-limited and capped per day; uploaded photos and their results expire after 14 days. No people or personal data are involved.
+- The public demo is rate-limited and capped per day; S3 lifecycle rules expire a raw upload after 1 day, and the inspected copy and its results after 14 days. No people or personal data are involved.
 
 ## AI disclosure
 

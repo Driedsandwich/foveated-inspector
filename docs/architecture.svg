@@ -22,7 +22,7 @@
   <!-- Public path -->
   <rect x="40" y="110" width="170" height="78" class="box"/>
   <text x="58" y="140" class="t">Judge / inspector</text>
-  <text x="58" y="162" class="s">browser UI (canvas replay,</text>
+  <text x="58" y="162" class="s">browser UI (replay,</text>
   <text x="58" y="178" class="s">human-review buttons)</text>
 
   <rect x="270" y="110" width="200" height="78" class="box aws"/>
@@ -49,7 +49,7 @@
   <rect x="800" y="232" width="350" height="200" class="grp"/>
   <text x="814" y="254" class="gt">Agent (deterministic, logged)</text>
   <text x="814" y="280" class="s">1. coarse_scan (¼ res) → belief map</text>
-  <text x="814" y="302" class="s">2. pick tile × zoom with best value / pixel cost</text>
+  <text x="814" y="302" class="s">2. confirm candidates first, else best weighted belief / cost</text>
   <text x="814" y="324" class="s">3. inspect_tile → OpenCV 5 features → cv2.ml RTrees</text>
   <text x="814" y="346" class="s">4. evidence decides next action:</text>
   <text x="834" y="368" class="s">escalate zoom · follow crack to neighbour</text>
@@ -68,46 +68,48 @@
   <text x="548" y="352" class="s">inspections, human reviews,</text>
   <text x="548" y="370" class="s">rate limits (TTL)</text>
 
-  <path d="M800 190 L478 318" class="ln"/>
-  <path d="M635 188 V292" class="ln"/>
-  <path d="M800 170 L748 318" class="ln dash"/>
+  <path d="M800 190 L478 318" class="ln" style="marker-start:url(#a)"/>
+  <path d="M635 188 V292" class="ln" style="marker-start:url(#a)"/>
+  <path d="M560 198 L440 300" class="ln" style="marker-start:url(#a)"/>
+  <path d="M800 170 L748 318" class="ln" style="marker-start:url(#a)"/>
 
   <rect x="40" y="300" width="170" height="88" class="box aws"/>
   <text x="58" y="330" class="t">CloudWatch</text>
-  <text x="58" y="352" class="s">logs (7 days), metrics,</text>
-  <text x="58" y="370" class="s">invocation alarm</text>
+  <text x="58" y="352" class="s">logs (7 days), metrics of</text>
+  <text x="58" y="370" class="s">all Lambdas; web alarm</text>
 
   <!-- Benchmark path -->
   <rect x="30" y="460" width="1130" height="230" class="grp"/>
-  <text x="44" y="484" class="gt">Reproducible benchmark &amp; training (all heavy compute on Lambda)</text>
+  <text x="44" y="480" class="gt">Reproducible benchmark &amp; training (all heavy compute on Lambda)</text>
 
   <rect x="50" y="510" width="200" height="80" class="box"/>
   <text x="68" y="540" class="t">Driver (laptop)</text>
   <text x="68" y="562" class="s">plans, async fan-out,</text>
-  <text x="68" y="578" class="s">merges small JSON only</text>
+  <text x="68" y="578" class="s">merges JSON; times tool</text>
 
   <rect x="320" y="500" width="250" height="100" class="box cv"/>
   <text x="338" y="530" class="t">Lambda x132-bench</text>
-  <text x="338" y="552" class="s">arm64 · 3008 MB · 900 s · sharded</text>
+  <text x="338" y="552" class="s">arm64 · 3008 MB · sharded jobs</text>
   <text x="338" y="570" class="s">generate · features · fit · tune(dev)</text>
   <text x="338" y="588" class="s">· eval(test)</text>
 
   <rect x="640" y="500" width="240" height="100" class="box cv"/>
   <text x="658" y="530" class="t">x132-tool (arm64 / x86_64)</text>
   <text x="658" y="552" class="s">same OpenCV 5 tool on two</text>
-  <text x="658" y="570" class="s">architectures → latency &amp;</text>
-  <text x="658" y="588" class="s">cost comparison (Graviton)</text>
+  <text x="658" y="570" class="s">architectures → latency</text>
+  <text x="658" y="588" class="s">comparison (Graviton vs x86)</text>
 
   <rect x="940" y="500" width="200" height="100" class="box store"/>
   <text x="958" y="530" class="t">Data (licensed)</text>
-  <text x="958" y="552" class="s">Poly Haven CC0 surfaces</text>
-  <text x="958" y="570" class="s">+ injected defects (exact</text>
-  <text x="958" y="588" class="s">pixel ground truth)</text>
+  <text x="958" y="552" class="s">Poly Haven CC0 surfaces;</text>
+  <text x="958" y="570" class="s">bench injects defects with</text>
+  <text x="958" y="588" class="s">exact pixel ground truth</text>
 
   <path d="M250 550 H312" class="ln"/>
-  <path d="M570 550 H632" class="ln dash"/>
-  <path d="M940 550 L880 550" class="ln dash"/>
-  <path d="M445 500 L380 396" class="ln dash"/>
+  <path d="M150 510 V494 H760 V498" class="ln dash"/>
+  <path d="M1040 600 V616 H445 V606" class="ln dash"/>
+  <path d="M540 500 L430 396" class="ln dash"/>
 
-  <text x="50" y="660" class="s">Free-plan AWS account · least-privilege execution role · no public bucket · no Marketplace products · teardown script removes every owned resource.</text>
+  <text x="50" y="636" class="s">Solid: request and data flow (two heads = read and write) · dashed: batch jobs and explanation · crossing lines do not connect.</text>
+  <text x="50" y="660" class="s">Free-plan AWS account · scoped execution roles · no public bucket · no Marketplace products · teardown deletes recorded resources after ownership checks (versioned buckets: manual).</text>
 </svg>

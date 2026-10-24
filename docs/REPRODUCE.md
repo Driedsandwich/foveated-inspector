@@ -62,7 +62,7 @@ X132_POLICY_CONFIG_FILE=artifacts/v8-tune/merged/config.json python aws/deploy.p
 python aws/run_bench.py --job arm-benchmark --image-ref s3://<bucket>/x132/samples/cracked-concrete.jpg \
   --detectors classic learned --tile 0 0 256 256 --tile 1536 1536 256 256 --tile 3072 3072 256 256 \
   --job-id v5-arm --out artifacts/arm-vs-x86 --execute
-python aws/teardown.py --execute   # removes every resource recorded in aws/state.json
+python aws/teardown.py --execute   # deletes resources recorded in aws/state.json after per-type ownership checks; versioned buckets are left for manual review
 ```
 
 ## 6. Independent real-patch check
