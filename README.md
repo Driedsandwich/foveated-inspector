@@ -6,7 +6,7 @@ An inspection agent that looks at a very large surface photo the way a human ins
 Entry for the *OpenCV AI Competition 2026, powered by AWS* (Agentic Vision path). Team: Driedsandwich (solo).
 
 - Live demo (throttled, daily cap): https://s041j0ehzk.execute-api.us-east-1.amazonaws.com
-- Video (≤ 5 min): `[TBD]`
+- Video (≤ 5 min): https://youtu.be/XIKySQQ6Go8
 - Technical report: [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md)
 
 ## Why
