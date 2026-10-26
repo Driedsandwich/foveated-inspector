@@ -16,7 +16,7 @@ High-resolution inspection images (drone surveys of bridge decks, line-scan came
 ## How it works
 
 1. **Coarse scan** (¼ resolution, OpenCV 5): multi-scale morphology, Hessian ridge strength, Gabor energy, Lab colour deviation, normalised by robust statistics of the same surface → a belief map over a 16×16 grid.
-2. **Choose the next look**: a pending full-resolution confirmation of a candidate goes first; otherwise the agent picks the tile and zoom level (¼, ½, full) with the highest defect belief per full-resolution pixel that look would cost, after weighting up tiles a crack is heading into and ambiguous tiles.
+2. **Choose the next look**: a pending full-resolution confirmation of a candidate goes first; otherwise the agent picks the tile and zoom level (¼, ½, full) with the highest defect belief per pixel that look would cost, after weighting up tiles a crack is heading into and ambiguous tiles.
 3. **Inspect the tile** (`inspect_tile`, OpenCV 5 + `cv2.ml` RTrees per scale): patch features → defect probability map → connected components → candidate defects with kind, length and width.
 4. **The evidence decides the next action**: escalate the same tile to a higher zoom when ambiguous; follow a crack whose endpoint touches the tile border into the neighbouring tile; report a defect only after confirming it at full resolution; send it to a human-review queue when still ambiguous.
 5. **Stop** when the pixel budget is spent or no remaining tile is likely enough. Every step (reason, observation, belief before/after, pixel cost) is written to a JSON trace that the web UI replays.
