@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#334155" role="img" aria-labelledby="title desc">
+<title id="title">Foveated Inspector — agent workflow (perception → decision → action)</title>
+<desc id="desc">OpenCV overview initializes cell beliefs. Affordable pending confirmations take priority; otherwise weighted belief per analysed pixel selects the next cell and scale. Each look changes beliefs, candidates and neighbour priorities. Only full-resolution gated evidence is reported; unresolved ambiguity is queued for human review. Green arrows show the feedback loop. The web app replays the recorded trace and saves reviewer decisions.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#334155"/></marker>
+  <marker id="green-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#15803d"/></marker>
+  <style>
+    .box{fill:#ffffff;stroke:#334155;stroke-width:1.6;rx:10}
+    .aws{fill:#fff7ed;stroke:#c2410c}
+    .cv{fill:#eef2ff;stroke:#4338ca}
+    .store{fill:#f0fdf4;stroke:#15803d}
+    .lane{fill:#f8fafc;stroke:#94a3b8;stroke-width:1.2;rx:14}
+    .t{font-weight:700;font-size:20px}
+    .s{font-size:17px;fill:#334155}
+    .code{font-family:monospace;font-size:15px;fill:#334155}
+    .head{font-size:19px;font-weight:700}
+    .ln{stroke:#334155;stroke-width:1.8;fill:none;marker-end:url(#arrow);stroke-linejoin:round}
+    .feedback{stroke:#15803d;stroke-width:3;fill:none;marker-end:url(#green-arrow);stroke-linejoin:round}
+    .dash{stroke-dasharray:6 5}
+    .separator{stroke:#cbd5e1;stroke-width:1}
+  </style>
+</defs>
+<rect id="background" width="1500" height="1000" fill="#ffffff"/>
+
+<text id="text-1" x="40" y="44" class="title" font-size="27">Foveated Inspector — agent workflow (perception → decision → action)</text>
+<text id="text-2" x="40" y="76" class="s">Deterministic policy • visual evidence changes the next cell and zoom • classic or learned detector</text>
+<rect id="lane-perception" x="25" y="100" width="415" height="740" class="lane"/>
+<rect id="lane-decision" x="485" y="100" width="465" height="740" class="lane"/>
+<rect id="lane-action" x="990" y="100" width="475" height="740" class="lane"/>
+<text id="text-3" x="45" y="132" class="head">PERCEPTION (OpenCV 5 tools)</text>
+<text id="text-4" x="505" y="132" class="head">DECISION / ORCHESTRATION</text>
+<text id="text-5" x="1010" y="132" class="head">ACTION</text>
+<rect id="box-coarse" x="50" y="160" width="375" height="210" class="box cv"/>
+<text id="text-6" x="68" y="188" class="t">Glance over the whole image</text>
+<text id="text-7" x="68" y="212" class="code">coarse_scan</text>
+<text id="text-8" x="68" y="239" class="s">4096 × 4096 → 1024 × 1024 (¼ scale)</text>
+<text id="text-9" x="68" y="263" class="s">Classic: resize, cvtColor, black/top-hat,</text>
+<text id="text-10" x="68" y="285" class="s">boxFilter, Gabor filter2D, GaussianBlur.</text>
+<text id="text-11" x="68" y="311" class="s">Learned: Sobel, Gabor, Canny, … + RTrees;</text>
+<text id="text-12" x="68" y="333" class="s">sampled background calibration.</text>
+<text id="text-13" x="68" y="356" class="s">Output: cell priors + baseline statistics.</text>
+<rect id="box-state" x="500" y="160" width="435" height="190" class="box store"/>
+<text id="text-14" x="518" y="188" class="t">Belief map + pending looks</text>
+<text id="text-15" x="518" y="216" class="s">16 × 16 grid; initialise belief from prior.</text>
+<text id="text-16" x="518" y="240" class="s">Start at 0.5 scale (0.25 configurable).</text>
+<text id="text-17" x="518" y="264" class="s">Each look: replace cell belief with score.</text>
+<text id="text-18" x="518" y="288" class="s">Track candidates, pending scales, neighbours.</text>
+<text id="text-19" x="518" y="322" class="code">belief · pending · candidates_by_cell</text>
+<rect id="box-select" x="500" y="390" width="435" height="260" class="box"/>
+<text id="text-20" x="518" y="418" class="t">Choose the next cell and zoom</text>
+<text id="text-21" x="518" y="446" class="s">limit = floor(image area × budget_frac)</text>
+<text id="text-22" x="518" y="470" class="s">Eligible: cost ≤ limit − used; belief ≥ cutoff</text>
+<text id="text-23" x="518" y="493" class="s">(belief test waived for a full-res confirmation).</text>
+<text id="text-24" x="518" y="524" class="s">Pending confirmations first; then maximise:</text>
+<text id="text-25" x="518" y="549" class="s">weighted belief / pixels that look costs</text>
+<text id="text-26" x="518" y="575" class="s">Weights favour zoom escalation + following.</text>
+<text id="text-27" x="518" y="599" class="s">Ties: lower cell index. Use its pending scale.</text>
+<text id="text-28" x="518" y="630" class="code">max(actions) → pending.pop(cell)</text>
+<rect id="box-fine" x="50" y="470" width="375" height="290" class="box cv"/>
+<text id="text-29" x="68" y="498" class="t">Look at the selected cell</text>
+<text id="text-30" x="68" y="523" class="code">inspect_tile · rect + scale + baseline</text>
+<text id="text-31" x="68" y="550" class="s">Crop original image; ¼, ½ or full scale.</text>
+<text id="text-32" x="68" y="577" class="s">Classic: resize, cvtColor, CLAHE,</text>
+<text id="text-33" x="68" y="599" class="s">black/top-hat, connected components,</text>
+<text id="text-34" x="68" y="621" class="s">minAreaRect, distanceTransform,</text>
+<text id="text-35" x="68" y="643" class="s">GaussianBlur; thinning when available.</text>
+<text id="text-36" x="68" y="670" class="s">Learned: same features + RTrees;</text>
+<text id="text-37" x="68" y="692" class="s">components, minAreaRect + PCA direction.</text>
+<text id="text-38" x="68" y="721" class="s">Output: score, detections, endpoints,</text>
+<text id="text-39" x="68" y="743" class="s">actual resized pixel cost.</text>
+<rect id="box-budget" x="500" y="680" width="435" height="115" class="box"/>
+<text id="text-40" x="518" y="707" class="t">Account for every look</text>
+<text id="text-41" x="518" y="733" class="s">cost = max(1, ⌊w·s⌋) × max(1, ⌊h·s⌋)</text>
+<text id="text-42" x="518" y="757" class="s">used += cost; repeated crops are charged.</text>
+<text id="text-43" x="518" y="782" class="s">Overview (+ learned calibration): separate cost.</text>
+<rect id="box-actions" x="1000" y="160" width="450" height="550" class="box aws"/>
+<text id="text-44" x="1018" y="188" class="t">After each look: apply the evidence</text>
+<text id="text-45" x="1018" y="219" class="t">Follow a line across a cell border</text>
+<text id="text-46" x="1018" y="242" class="s">Border endpoint → boost a pending neighbour;</text>
+<text id="text-47" x="1018" y="264" class="s">mark it for higher selection weight.</text>
+<text id="text-48" x="1018" y="285" class="code">following.add(neighbour) · belief_updates</text>
+<path d="M1018 298 H1432" class="separator"/>
+<text id="text-49" x="1018" y="323" class="t">Zoom further: retain a candidate</text>
+<text id="text-50" x="1018" y="346" class="s">Below full scale, score ≥ ambiguous_low:</text>
+<text id="text-51" x="1018" y="368" class="s">save candidate; schedule same cell at scale 1.0.</text>
+<text id="text-52" x="1018" y="389" class="code">record_candidate · pending[cell] = 1.0</text>
+<path d="M1018 400 H1432" class="separator"/>
+<text id="text-53" x="1018" y="426" class="t">Report a confirmed defect</text>
+<text id="text-54" x="1018" y="449" class="s">Full scale + score threshold + component gates;</text>
+<text id="text-55" x="1018" y="471" class="s">spatial match or long-line exception. Merge reports.</text>
+<text id="text-56" x="1018" y="492" class="code">report_defect</text>
+<path d="M1018 505 H1432" class="separator"/>
+<text id="text-57" x="1018" y="531" class="t">Queue an uncertain cell for a human</text>
+<text id="text-58" x="1018" y="554" class="s">At full scale: no report survives the gates,</text>
+<text id="text-59" x="1018" y="576" class="s">but score ≥ ambiguous_low → review queue.</text>
+<text id="text-60" x="1018" y="597" class="code">request_human_review</text>
+<path d="M1018 610 H1432" class="separator"/>
+<text id="text-61" x="1018" y="636" class="t">Weak evidence: move on</text>
+<text id="text-62" x="1018" y="659" class="s">Score below ambiguous_low: no further cell action.</text>
+<text id="text-63" x="1018" y="682" class="s">Full-scale look clears the cell’s pending candidates.</text>
+<rect id="box-stop" x="1000" y="735" width="450" height="100" class="box"/>
+<text id="text-64" x="1018" y="763" class="t">Stop and return the inspection</text>
+<text id="text-65" x="1018" y="786" class="s">No pending look fits the budget / belief cutoff,</text>
+<text id="text-66" x="1018" y="808" class="s">or time limit reached. Save remaining candidates.</text>
+<text id="text-67" x="1018" y="828" class="code">stop_reason</text>
+<path id="arrow-prior" d="M425 190 H500" class="ln"/>
+<path id="arrow-state-select" d="M720 350 V390" class="ln"/>
+<path id="arrow-look-belief" d="M425 510 H450 V265 H500" class="feedback"/>
+<path id="arrow-actions-feedback" d="M1450 685 H1480 V855 H470 V330 H500" class="feedback"/>
+<text id="text-68" x="600" y="874" class="s">Updated evidence → next look</text>
+<path d="M500 610 H425" fill="none" stroke="#ffffff" stroke-width="9"/>
+<path id="arrow-select-look" d="M500 610 H425" class="ln"/>
+<text id="text-69" x="64" y="452" class="s">↓ selected cell + zoom from the policy</text>
+<path id="arrow-evidence-actions" d="M240 760 V815 H975 V188 H1000" class="ln"/>
+<path id="arrow-charge" d="M720 815 V795" class="ln"/>
+<path id="arrow-budget-select" d="M720 680 V650" class="ln"/>
+<path d="M935 600 H960 V775 H1000" fill="none" stroke="#ffffff" stroke-width="9"/>
+<path id="arrow-stop" d="M935 600 H960 V775 H1000" class="ln"/>
+<rect id="box-trace" x="50" y="895" width="680" height="85" class="box store"/>
+<text id="text-70" x="68" y="921" class="t">Trace → web replay</text>
+<text id="text-71" x="68" y="946" class="s">Every emitted step: reason, score, belief changes, cost and action.</text>
+<text id="text-72" x="68" y="969" class="s">Saved trace.json → step / play controls, gaze path and belief heatmap.</text>
+<rect id="box-human" x="790" y="895" width="660" height="85" class="box aws"/>
+<text id="text-73" x="808" y="921" class="t">Reviewer approves or rejects queued cells in the web app</text>
+<text id="text-74" x="808" y="946" class="s">POST /api/review → validate queued cell → save decision + optional note.</text>
+<text id="text-75" x="808" y="969" class="s">Review decisions are stored in DynamoDB.</text>
+<path id="arrow-coarse-trace" d="M50 345 H35 V885 H180 V895" class="ln dash"/>
+<path id="arrow-loop-trace" d="M550 840 V885 H390 V895" class="ln dash"/>
+<path id="arrow-review-ui" d="M1450 570 H1492 V885 H1120 V895" class="ln dash"/>
+<text id="text-76" x="1465" y="70" class="s" text-anchor="end">Green: feedback • dashed: trace / review • crossings do not connect.</text>
+</svg>

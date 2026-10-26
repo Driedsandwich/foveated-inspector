@@ -23,6 +23,10 @@ High-resolution inspection images (drone surveys of bridge decks, line-scan came
 
 The agent is a deterministic, inspectable policy — no generative model is involved, and every decision can be audited from the trace.
 
+![agent workflow](docs/agent_workflow.svg)
+
+*Agent workflow: perception (OpenCV 5 tools) → decision (choosing the next look under the pixel budget) → action. Green arrows show how the visual evidence of each look changes the next look; dashed arrows lead to the trace replay and the human-review queue.*
+
 ## Results (held-out test surfaces with synthetic defects: 28 images, 155 defects, 4096 × 4096)
 
 The image is a 16 × 16 grid of 256 × 256-pixel cells. *Defect-cell recall* is the share of defects that a flagged cell covers; *flag precision* is the share of flagged cells that actually contain a defect.
